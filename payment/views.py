@@ -24,13 +24,16 @@ class CreatePaymentView(APIView):
         payment = paypalrestsdk.Payment({
             "intent": "sale",
             "payer": {
-                "payment_method": "paypal"
+                "payment_method": "paypal",
             },
             "redirect_urls": {
                 "return_url": "http://localhost:8000/payment/execute",
                 "cancel_url": "http://localhost:8000/payment/cancel"
             },
             "transactions": [{
+                "payee": {
+                    "email": "sb-v3h43y30835515@business.example.com"
+                },
                 "item_list": {
                     "items": [{
                         "name": "item",
@@ -44,30 +47,37 @@ class CreatePaymentView(APIView):
                     "total": "5.00",
                     "currency": "USD"
                 },
-                "description": "This is the payment description."
+                "description": "This is the payment description.",
+                "shipping_address": {
+                    "recipient_name": "John Doe",
+                    "line1": "1234 Main St",
+                    "city": "Nairobi",
+                    "state": "Nairobi County",
+                    "postal_code": "00100",
+                    "country_code": "KE"
+                }
             }]
         })
 
         # Create the payment
         if payment.create():
-            print("Payment created successfully")
+            # Save the payment in the database
+            # Create the payment in the database and assign it to a variable
+            payment_instance = PayPalPayment.objects.create(
+                transaction_id=payment.id,
+                amount=payment.transactions[0].amount.total,
+                currency=payment.transactions[0].amount.currency,
+                status=payment.state,
+            )
+
+            # Serialize the payment instance
+            serializer = PayPalPaymentSerializer(payment_instance)
+
+            # Return the serialized payment instance
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            print(payment.error)
-
-        # Save the payment in the database
-        # Create the payment in the database and assign it to a variable
-        payment_instance = PayPalPayment.objects.create(
-            transaction_id=payment.id,
-            amount=payment.transactions[0].amount.total,
-            currency=payment.transactions[0].amount.currency,
-            status=payment.state,
-        )
-
-        # Serialize the payment instance
-        serializer = PayPalPaymentSerializer(payment_instance)
-
-        # Return the serialized payment instance
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # The payment creation was not successful
+            return Response({"error": payment.error}, status=status.HTTP_400_BAD_REQUEST)
 
 class ExecutePaymentView(APIView):
     def get(self, request):
@@ -96,7 +106,7 @@ class CreateCardPaymentView(APIView):
 
         # Create the payment object
         payment = paypalrestsdk.Payment({
-            "intent": "sale",
+            "intent": "SALE",
             "payer": {
                 "payment_method": "credit_card",
                 "funding_instruments": [{
@@ -117,7 +127,18 @@ class CreateCardPaymentView(APIView):
                     "total": "5.00",
                     "currency": "USD"
                 },
-                "description": "This is the payment description."
+                "description": "This is the payment description.",
+                "payee": {
+                    "email": "sb-v3h43y30835515@business.example.com"
+                },
+                "shipping_address": {
+                    "recipient_name": "John Doe",
+                    "line1": "1234 Main St",
+                    "city": "Nairobi",
+                    "state": "Nairobi County",
+                    "postal_code": "00100",
+                    "country_code": "KE"
+                }
             }]
         })
 
