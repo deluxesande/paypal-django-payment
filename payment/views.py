@@ -21,7 +21,7 @@ class HelloWorldView(APIView):
 class CreatePaymentView(APIView):
     def post(self, request):
         # Create the payment object
-        payment = Payment({
+        payment = paypalrestsdk.Payment({
             "intent": "sale",
             "payer": {
                 "payment_method": "paypal"
@@ -125,7 +125,17 @@ class CreateCardPaymentView(APIView):
         if payment.create():
             # The payment has been created successfully
             # Here you can add your logic to update your application's state
-            return Response({"message": "Payment created successfully"},status=status.HTTP_201_CREATED)
+            # Create a Payment object
+            payment_instance = Payment.objects.create(
+                payment_id=payment.id,
+                status=payment.state,
+                amount=payment.transactions[0].amount.total
+            )
+
+            # Serialize the payment instance
+            serializer = PayPalPaymentSerializer(payment_instance)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             # The payment creation was not successful
-            return Response({"error": "Payment creation failed"}, status=status.HTTP_200_OK)
+            return Response({"error": payment.error}, status=status.HTTP_400_BAD_REQUEST)
